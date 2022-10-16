@@ -76,7 +76,7 @@ class Maze:
     clear: function
 
     def __init__(self, on_terminal : bool = True) -> None:
-        self._maze = DEFAULT_MAZE
+        self._maze = np.array(DEFAULT_MAZE)
 
         self.height = len(self._maze)
         self.width = len(self._maze[0])
@@ -86,6 +86,8 @@ class Maze:
         self.done = False
         self.dfs_call_count = 0
         self.on_terminal = on_terminal
+        if on_terminal == False:
+            Maze.EMOJI_DICT[0] = "⚫"
 
 
     def _get_starting_position(self) -> tuple[int,int]:
@@ -242,6 +244,13 @@ class Maze:
 
     def _mark_not_visited(self, i: int, j: int) -> None:
         self._maze[i][j] == Maze.WALL
+    
+
+    def _reset_maze_visited_nodes (self, active_fruits : list[tuple[int,int]]) -> None:
+        '''Reinicializa as posições visitadas do labirinto.'''
+        self._maze[self._maze == Maze.VISITED] = Maze.PATH
+        for fruit in active_fruits:
+            self._maze[fruit[0]][fruit[1]] = Maze.FRUIT
 
 
     def _get_distance (
@@ -277,11 +286,15 @@ class Maze:
                 
     
 
-    def start_a_star_search(self) -> None:
+    def start_a_star_search(self) -> tuple[int]:
         '''
         Inicializa o algoritmo de busca A*, realizando impressão do 
-        resultado a cada caminho calculado.
+        resultado a cada caminho calculado. Retorna uma tupla contendo 
+        a quantia de iterações realizadas para alcançar cada objetivo.
         '''
+        # Tempos (#iterações) das soluções
+        solutions = deque([])
+
         # Para controle das frutas (objetivos)
         fruits = np.array(list(self.fruits))
         fruits_indexes = np.arange(0, fruits.shape[0])
@@ -331,6 +344,9 @@ class Maze:
                     Node(1, adjacent_position, current_position)
                 ))
             
+            # Tempo da solução atual
+            current_solution_time = 0
+            
             # Enquanto não finalizar o objetivo atual
             while current_position != current_fruit and not queue.empty():
                 
@@ -351,6 +367,9 @@ class Maze:
                         Node(g_n, adjacent_position, current_position)
                     ))
                 
+                # Incremento da quantia de iterações
+                current_solution_time += 1
+                
             # Atualização de objetivo
             num_collected_fruits += 1
             non_collected_fruits[current_fruit_index] = False
@@ -363,22 +382,32 @@ class Maze:
                 backtracking_position = parents[backtracking_position]
 
             # Impressão interativa
+            self._reset_maze_visited_nodes(active_fruits)
+            self._maze[initial_position[0]][initial_position[1]] = self.VISITED
             while len(path) > 0:
                 pos = path.pop()
                 self._maze[pos[0]][pos[1]] = self.PACMAN
                 self.print()
                 self._maze[pos[0]][pos[1]] = self.VISITED
             self.print()
+
+            # Armazenamento do tempo de solução
+            solutions.append(current_solution_time)
         
         # Finalização
         self.done = True
+        return tuple(solutions)
     
 
-    def start_bfs(self) -> True:
+    def start_bfs(self) -> tuple[int]:
         '''
         Inicializa o algoritmo de busca BFS, realizando impressão do 
-        resultado a cada caminho calculado.
+        resultado a cada caminho calculado. Retorna uma tupla contendo 
+        a quantia de iterações realizadas para alcançar cada objetivo.
         '''
+        # Tempos (#iterações) das soluções
+        solutions = deque([])
+
         # Para controle das frutas (objetivos)
         fruits = np.array(list(self.fruits))
         fruits_indexes = np.arange(0, fruits.shape[0])
@@ -421,6 +450,9 @@ class Maze:
             adjacent_node = self._get_valid_positions(visited, current_position)
             for adjacent_position in adjacent_node:
                 queue.append(Node(adjacent_position, current_position))
+
+            # Tempo da solução atual
+            current_solution_time = 0
             
             # Enquanto não finalizar o objetivo atual
             while current_position != current_fruit and len(queue) > 0:
@@ -431,19 +463,38 @@ class Maze:
                 parents[current_position] = current_node.parent
                 visited[current_position] = True
 
-                # Impressão
-                self._maze[current_position[0]][current_position[1]] = self.PACMAN
-                self.print()
-                self._maze[current_position[0]][current_position[1]] = self.VISITED
-
                 # Adição dos nós adjacentes à fila
                 adjacent_node = self._get_valid_positions(visited, current_position)
                 for adjacent_position in adjacent_node:
                     queue.append(Node(adjacent_position, current_position))
+
+                # Incremento da quantia de iterações
+                current_solution_time += 1
                 
             # Atualização de objetivo
             num_collected_fruits += 1
             non_collected_fruits[current_fruit_index] = False
+
+            # Impressão do resultado --- backtracking (construção do caminho)
+            path = deque([])
+            backtracking_position = (current_position[0], current_position[1])
+            while backtracking_position != initial_position:
+                path.append(backtracking_position)
+                backtracking_position = parents[backtracking_position]
+
+            # Impressão interativa
+            self._reset_maze_visited_nodes(active_fruits)
+            self._maze[initial_position[0]][initial_position[1]] = self.VISITED
+            while len(path) > 0:
+                pos = path.pop()
+                self._maze[pos[0]][pos[1]] = self.PACMAN
+                self.print()
+                self._maze[pos[0]][pos[1]] = self.VISITED
+            self.print()
+
+            # Armazenamento do tempo de solução
+            solutions.append(current_solution_time)
         
         # Finalização
         self.done = True
+        return tuple(solutions)
